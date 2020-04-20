@@ -28,8 +28,58 @@ void print(std::initializer_list<int> vals)
 }
 print({1,3,5,7,9});
 ```
-## 6.explicit for ctors taking more than one argument
+## 8.explicit for ctors taking more than one argument
 - cpp11之前，只适用于单一实参。cpp11之后，支持多实参构造函数。
 - explicit关键字：主要应用于构造函数.
 - 禁止隐式转换，禁止隐式调用对应构造函数。
 
+## 9.range-based for statement
+- 按顺序遍历容器中的每个元素。
+- explicit可以禁止隐式转换，可以在for-loop中禁止容器A转换成类型B。换句话来说，可以禁止用新式for-loop进行遍历容器中的所有元素。
+```cpp
+for(decl : coll)
+{
+    statement
+}
+//可以近似的看成
+for(auto _pos=coll.begin(),_end=coll.end();_pos!=_end;++_pos)
+{
+    decl = *_pos;
+    statement;
+}
+```
+## 10.=default,=delete
+- 如果自行定义有ctor，那么编译器将不再会提供default ctor，但是如果强制加上=default，就可以重新获得并且使用default ctor。
+    - 一般函数不能使用default。
+    - 如果实现有拷贝构造和拷贝赋值函数，那么不能使用default。
+- =delete经常用于拷贝构造和拷贝赋值函数，用于禁止拷贝构造或者拷贝赋值的操作。
+  - 析构函数不能使用delete。
+
+## 11.NoCpoy and Private-Copy
+```cpp
+struct NoCopy{
+    NoCopy() = default;
+    NoCopy(const NoCopy&) = delete;
+    NoCopy& operator=(const NoCopy&) = delete;
+    ~NoCopy() = default;
+};
+
+struct NoDtor{
+    NoDtor() = default;
+    ~NoDtor() = delete;
+};
+NoDtor nd; //error:NoDtor destructor is deleted
+NOdtor *p = new NoDtor(); //ok
+delete p; //error:NoDtor destructor is deleted
+
+//此class不允许被ordinary user code copy,但仍可被friends和members copy.
+class PrivateCopy{
+private:
+    PrivateCopy(const PrivateCopy&);
+    PrivateCopy& operator=(const PrivateCopy&);
+public:
+    PrivateCopy() = default;
+    ~PrivateCopy();
+};
+```
+- class noncopyable:使用了类似上述PrivateCopy的实现手段，所有继承它的子类，普通用户都不能直接代码拷贝其对象。
