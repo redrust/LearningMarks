@@ -83,3 +83,75 @@ public:
 };
 ```
 - class noncopyable:使用了类似上述PrivateCopy的实现手段，所有继承它的子类，普通用户都不能直接代码拷贝其对象。
+
+## 12.Alias Template(template typedef)
+- 模板别名。
+- 注意：无法对模板别名进行偏特化。
+```cpp
+//such as
+template<typename T>
+using Vec = std::vector<T,MyAlloc<T>>
+
+Vec<int> coll;
+//is equivalent to
+std::vector<int,MyAlloc<int>> coll;
+```
+
+## 13.Template template parameter
+- 模板作为另一个模板的参数。
+```cpp
+template<typename T,template<class> class Container>
+class XCIs
+{
+private:
+    Container<T> c;
+};
+
+//这个不能在函数体内部声明
+template<typename T>
+using Vec = std::vector<T,allocator<T>>;
+
+XCIs<std::string,Vec> c1;
+```
+
+## 14.Type Alias(similar to typedef)
+- example1
+```cpp
+//type alias,identical to
+//typedef void (*func)(int,int);
+using func = void(*)(int,int);
+void example(int,int){}
+func fn = example;
+```
+- example2
+```cpp
+//type alias can introduce a member typedef name
+template<typename T>
+struct Container{
+    using value_type = T;
+};
+//which can be used in generic programming
+template<typename Cntr>
+void fn2(const Cntr& c)
+{
+    typename Cntr::value_type n;
+}
+```
+- example3
+```cpp
+//type alias used to hide a template parameter
+template<class CharT> using mystring = std::basic_string<CharT,std::char_traites<CharT>>;
+mystring<char> str;
+```
+- using还可以用来做using-directives和using-declarations.比如`using namespace std;`和`using std::count;`.
+
+## 15.noexcept
+- 在函数后面写，保证该函数不抛出异常。
+- 注意：move语意要正常调用，不仅要写出移动构造函数，还需要在移动构造函数后面加上noexcept，否则编译器不予以调用。
+- 注意，growable containers（会发生memory reallcation）只有两种：vector和deque
+
+## 15.overide
+- 复写、改写，应用于虚函数上。声明该函数是从父类上继承过来，但是被重写了。如果不是重写的函数，那么编译器会报错。
+
+## 16.final
+- 用于类和虚函数。用于类的时候该类无法被继承。用于虚函数的时候该函数不能被重写。
