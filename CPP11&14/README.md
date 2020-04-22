@@ -155,3 +155,35 @@ mystring<char> str;
 
 ## 16.final
 - 用于类和虚函数。用于类的时候该类无法被继承。用于虚函数的时候该函数不能被重写。
+
+## 17.decltype
+- declare type:声明类别
+- 使用这个关键字，可以让编译器找出对应表达式的类型。类似于typeof。
+```cpp
+map<std::string,float> coll;
+decltype(coll)::value_type elem;
+//equvalent to
+map<std::string,float>::value_type elem;
+```
+1.  decltype:used to declare return type
+    - 有些时候，返回类型需要根据参数类型处理完之后的结果来确定。
+    ```cpp
+    template<typename T1,typename T2>
+    auto add(T1 x,T2 y) -> decltype(x+y);
+    ```
+2. use it in metaprogramming
+   ```cpp
+   template<typename T>
+   void test_decltype(T obj)
+   {
+       typedef typename decltype(obj)::iterator iType;
+       //调用拷贝构造函数，类似于T anotherObj(obj);
+       decltype(obj) anotherObj(obj);
+   }
+   ```
+3. used to pass the type of lambda
+   ```cpp
+   auto cmp = [](){};
+   std::set<ObjectType,decltype(cmp)> coll(cmp);
+   ```
+## 18.[lambda](Lambda.md)
