@@ -94,3 +94,96 @@ float m_head(6.3);
 &emsp;&emsp;&emsp;$\uparrow$  
 tuple<int,float,string>  
 int m_head(41);
+
+### 例１
+- 可以将参数类型和值进行打包，之后通过模板预算推导，来实现拆包逐一处理元素。
+```cpp
+void printX()
+{
+}
+
+template<typename T,typename... Types>
+void printX(const T& firstArg,const Types&... args)
+{
+    std::cout << firstArg << std::endl;
+    printX(args...);
+}
+```
+### 例２
+- 重写printf
+```cpp
+//出口处理，参数不匹配的异常情况
+void printf(const char* s)
+{
+    while(*s)
+    {
+        if(*s == '%' && *(++s) != '%')
+            throw std::runtime_error("invalid format string:missing argument");
+        std::cout << *s++;
+    }
+}
+template<typename T,typename... Args>
+void printf(const char* s,T value,Args... args)
+{
+    while(*s)
+    {
+        if(*s == '%' && *(++s) != '%')
+        {
+            std::cout << value;
+            printf(++s,args);
+            return;
+        }
+        std::cout << *s++;
+    }
+    throw std::logic_error("extra arguments provided to printf");
+}
+```
+### 例３
+- 如果参数types相同，不需要动用variadic templates，使用initializer_list\<T>即可。
+- 案例可以参考C++标准库的max算法实现。
+
+### 例４
+- 不使用initializer_list的max算法实现。
+```cpp
+int maximum(int n)
+{
+    return n;
+}
+template<typename... Args>
+int maximum(int n,Args... args)
+{
+    return std::max(n,maximum(args...));
+}
+```
+
+### 例５
+- 特殊处理first元素和last元素
+```cpp
+cout << make_tuple(7.5,string("hello"),bitset<16>(377),42);
+//输出结果[7.5,hello,0000000101111001,42]
+//调用顺序－从上到下
+//入口函数,给首部元素加上[]
+template<typename... Args>
+ostream& operator<<(ostream& os,const tuple<Args...>& t)
+{
+    os << "[";
+    PRINT_TUPLE<0,sizeof...(Args),Args...>::print(os,t);
+    return os <<"]";
+}
+//处理中间的元素
+template<int IDX,int MAX,typename... Args>
+struct PRINT_TUPLE{
+    static void print(ostream& os,const tuple<Args...>& t)
+    {
+        os << get<IDX>(t) << (IDX + 1 == MAX ? "":",");
+        PRINT_TUPLE<IDX+1,MAX,Args...>::print(os,t);
+    }
+};
+//处理尾部元素
+//偏特化处理尾部元素
+template<int MAX,typename... Args>
+struct PRINT_TUPLE<MAX,MAX,Args...>
+{
+    static void print(ostream& os,const tuple<Args...>& t){}
+};
+```
