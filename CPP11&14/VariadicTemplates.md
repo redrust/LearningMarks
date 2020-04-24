@@ -71,7 +71,7 @@ class tuple<Head,Tail...>:private tuple<Tail...>
 public:
     tuple(){}
     tuple(Head v,Tail... vtail):m_head(v),inherited(vtail...){}
-    typename Head::type head(){ return m_head; }
+    auto head()->decltype(m_head) head(){ return m_head; }
     inherited& tail() { return *this; }
 protected:
     Head m_head;
@@ -80,7 +80,7 @@ protected:
 //测试案例
 tuple<int,float,string> t(41,6.3,"nico");
 t.head(); //获得"41"
-t.tail(); //获得" "
+t.tail(); //获得一个内存地址,指向t对象的地址首部。
 t.tail().head(); //获得6.3
 ```
 测试案例中继承结构如下:  
@@ -186,4 +186,45 @@ struct PRINT_TUPLE<MAX,MAX,Args...>
 {
     static void print(ostream& os,const tuple<Args...>& t){}
 };
+```
+
+### 例６
+- 用于递归继承，recursive inheritation
+- 参考tuple实现。
+
+### 例７
+- 用于递归复合，recursive composition
+- 递归调用，处理的都是参数，使用function template
+- 递归复合，处理的都是类型，使用class template
+- 类对象与类对象之间的关系变成了组合，就不再是继承了
+```cpp
+template<typename... Values> class tup;
+template<> class tup<>{};
+template<typename Head,typename... Tail>
+class tup<Head,Tail...>
+{
+    typedef tup<Tail...> composited;
+protected:
+    composited m_tail;
+    Head m_head;
+public:
+    tup(){}
+    tup(Head v,Tail... vtail):m_tail(vtail),m_head(v){}
+    Head head(){ return m_head; }
+    //传引用，否则会是一份拷贝
+    composited& tail(){ return m_tail; }
+};
+
+//测试案例
+tup<int,float,std::string> it1(41,6.3,"nico");
+std::cout << sizeof(it1) << std::endl;
+std::cout << it1.head() << std::endl;
+std::cout << it1.tail().head() << std::endl;
+std::cout << it1.tail().tail().head() << std::endl;
+/*输出结果如下：
+*56
+*41
+*6.3
+*nico
+*/
 ```

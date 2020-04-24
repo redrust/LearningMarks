@@ -187,3 +187,14 @@ map<std::string,float>::value_type elem;
    std::set<ObjectType,decltype(cmp)> coll(cmp);
    ```
 ## 18.[lambda](Lambda.md)
+
+## 19.Rvalue references
+- key word:`&&`
+- 右值引用：解决不必要的拷贝。
+- 当赋值的右边是右值，那么左边的对象就可以去直接获取右边对象的资源，而不是拷贝构造等操作。可以看成是左值对象获取了右值对象的指针。
+- 常见右值对象：临时对象
+- 注意：move语意搬动之后，原右值对象不能再使用。因为其本质是浅拷贝，临时对象的指针会被释放掉。
+  
+## 20.move semantics
+- keyword:`std::move()`
+- 将普通对象或者变量，通过搬移语意，一律强转成右值引用。
