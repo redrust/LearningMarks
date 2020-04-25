@@ -55,7 +55,7 @@ for(auto _pos=coll.begin(),_end=coll.end();_pos!=_end;++_pos)
 - =delete经常用于拷贝构造和拷贝赋值函数，用于禁止拷贝构造或者拷贝赋值的操作。
   - 析构函数不能使用delete。
 
-## 11.NoCpoy and Private-Copy
+## 11.NoCopy and Private-Copy
 ```cpp
 struct NoCopy{
     NoCopy() = default;
@@ -192,9 +192,52 @@ map<std::string,float>::value_type elem;
 - key word:`&&`
 - 右值引用：解决不必要的拷贝。
 - 当赋值的右边是右值，那么左边的对象就可以去直接获取右边对象的资源，而不是拷贝构造等操作。可以看成是左值对象获取了右值对象的指针。
-- 常见右值对象：临时对象
+- 常见右值对象：临时对象、常量、表达式
 - 注意：move语意搬动之后，原右值对象不能再使用。因为其本质是浅拷贝，临时对象的指针会被释放掉。
   
 ## 20.move semantics
 - keyword:`std::move()`
 - 将普通对象或者变量，通过搬移语意，一律强转成右值引用。
+
+## 21.Perfect Forwading
+- Unperfect Forwarding
+```cpp
+void process(int& i){
+    cout << "process(int&):" << i << endl;
+}
+void process(int&& i){
+    cout << "process(int&&):" << i << endl;
+}
+void forward(int&& i){
+    cout << "forwrd(int&&)" << i << ", ";
+    process(i);
+}
+forward(2);//forwrd(int&&):2,process(int&):2
+/*
+- 存在问题：Rvalue经过forward()传给另外一个函数却变成了Lvalue
+- 原因是传递过程中Rvalue变成了一个name object
+*/
+```
+- 完美递交：解决函数调用中右值引用对象发生变化的问题。
+```cpp
+template<tyname T1,typename T2>
+void functionA(T1&& t1,T2&& t2)
+{
+    functionB(std::forward<T1>(t1),std::forward<T2>(t2));
+}
+```
+
+## 22.move语意对容器性能的影响
+- 以节点存放的容器，则拷贝构造和搬移拷贝构造性能差别不大。
+- 对vector的性能影响最大，如果要使用vector容器，最好在目的对象上实现一个move ctor.
+
+## 23.容器Array
+- 本质是一个封装好的数组。
+- 提供了一些常用的标准库函数，提供一个容器该有的功能和接口，方便使用。
+- 特点：没有ctor和dtor。
+
+## 24.容器hashtable
+- Separate Chaining:虽然list是线性搜索事件，如果list自购销，搜寻速度仍然足够快。
+- 遵循内部哈希规则实现，当元素个数超过当前表buckets数时，整个哈希表进行rehashing，类似于vector的自我成长功能，是十分费时间和资源的行为，因为它扩大了容量之后，要对整个哈希表已经存在的每一个元素重新计算其位置，再将其插入到新的哈希表中。
+
+## 25.hash function
