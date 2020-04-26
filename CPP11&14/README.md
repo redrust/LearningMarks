@@ -241,3 +241,44 @@ void functionA(T1&& t1,T2&& t2)
 - 遵循内部哈希规则实现，当元素个数超过当前表buckets数时，整个哈希表进行rehashing，类似于vector的自我成长功能，是十分费时间和资源的行为，因为它扩大了容量之后，要对整个哈希表已经存在的每一个元素重新计算其位置，再将其插入到新的哈希表中。
 
 ## 25.hash function
+- 特殊函数，针对hashtable计算其元素的特定位置的一种函数。
+- 头文件：functional_hash.h
+- hash function的几种形式。
+```cpp
+//形式1
+class Customer{
+...
+};
+class CustomerHash{
+public:
+    std::size_t operator()(const Customer& c)const{
+        return ...;
+    }
+};
+unordered_set<Customer,CustomerHash> custset;
+
+//形式2
+template<>
+struct hash<Customer>{
+public:
+    std::size_t operator()(const Customer& c){
+        return ...;
+    }
+};
+
+//形式3
+template<>
+struct hash<MyString>{
+public:
+    std::size_t operator()(const MyString& s){
+        return hash<string>()(string(s.get()));
+    }
+};
+```
+## 26.tuple使用
+- make_tuple():可以传任意多个参数，返回一个创建好的tuple对象。
+- get\<index>(object):获取目标tuple对象里下标为index的内容。
+- 可以<,=等常规运算操作。
+- tie(types):将一堆types打包成tuple，可以用另外一个tuple对象对其元素赋值，也可以将其打包赋值给另外一个tuple。
+- tuple_size\<TupleType>::value:可以获取目标tuple类型的参数个数
+- tuple_elemet\<index,TupleType>::type :获取目标下标TupleType的类型
