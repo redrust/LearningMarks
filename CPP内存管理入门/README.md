@@ -122,17 +122,88 @@ size_t size = 3;
 	delete [] buf;    //dtor three times (次序逆反, [2]先於[1]先於[0])	
 }
 
-{
-    //case 3	
-    //掌握崩潰原因, 再次模擬 memory pool作法, array new + placement new. 	
-    //不, 不做了, 因為 memory pool 只是供應 memory, 它並不管 construction, 
-    //也不管 destruction. 它只負責回收 memory. 
-    //所以它是以 void* 或 char* 取得 memory, 釋放 (刪除)的也是 void* or char*.  
-    //不像本例 case 1 釋放 (刪除) 的是 A*. 
-    //
-    //事實上 memory pool 形式如 jj04::test 
-}
-
 }	
 ```
 ### placement new
+- placement new允许我们将object构建于allocated memory中，在指定位置构建对象。
+- 没有所谓的placement delete，因为placement new根本没有分配memory，也可以说与placement new对应的operator delete为palcement delete。
+```cpp
+//placement new典型用法
+char* buf = new char[1024];
+Object* object = new (buf) Object();
+```
+## cpp典型内存分配过程
+- 在这个过程中，套了一层operator new，方便重载的new自行调用。
+```cpp
+Foo* p =  new Foo(x);
+delete p;
+//is equvalent to
+Foo* p = (Foo*)malloc(sizeof(Foo));
+new (p)Foo(x);
+p->~Foo();
+free(p);
+```
+## 重载::operator new / ::operator delete
+- 注意：这个是全局操作符，重载影响到当前程序的方方面面，如果不是特别需求，不推荐重载。
+```cpp
+inline void* operator new(size_t size)
+{//do something
+}
+inline void* operator new[](size_t size)
+{//do something
+}
+inline void operator delete(void* ptr)
+{//do something
+}
+inline void operator delete[](void* ptr)
+{//do something
+}
+```
+## 重载operator new
+```cpp
+class Foo{
+public:
+    void* operator new(size_t);
+    //size_t是可选的参数，可写可不写
+    void operator delete(void*,size_t);
+};
+
+Foo* p = new Foo;
+//===>
+void* mem = operator new(sizeof(Foo));
+p = static_cast<Foo*>(mem);
+p->Foo::Foo(1,2);
+
+delete p;
+//===>
+p->~Foo();
+operator delete(p);
+```
+## 强制使用global scope operator
+```cpp
+Foo* p = ::new Foo();
+::delete p;
+```
+## placement new
+- 可以重载class member operator new()，写出多个版本，前提是每个版本必须有独特的参数列，其中第一个参数必须是size_t，其余参数以new所指定的placement arguments为初值。
+- 也可以重载class member operator delete()，写出多个版本，但是它们绝对不会被delete调用。只有当new所调用的ctor抛出exception，才会调用重载的operator delete()。之所以会这样设计，主要用来归还未能完全创建成功的object所占用的memory。
+```cpp
+class Foo{
+public:
+    //1 一般的operator new()的重载
+    void* operator new(size_t size){
+        return malloc(size);
+    }
+    //2 自定义参数个数的operator new()的重载
+    void* operator new(size_t size,long extra){
+        return malloc(size + extra);
+    }
+    //3 一般意义上的operator delete(),对应上面的1
+    void operator delete(void*,size_t)
+    {}
+    //4 对应上面的2重载operator new()
+    void operator delete(void*,long)
+    {} 
+};
+
+```
