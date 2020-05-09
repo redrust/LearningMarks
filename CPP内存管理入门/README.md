@@ -1,4 +1,5 @@
 ## CPP内存管理入门初探
+### 代码内容大部分引用至侯捷老师
 - primitives:基础内存管理手法
 - 想要直接调用类构造函数，需要使用placement new
 ```cpp
@@ -206,4 +207,67 @@ public:
     {} 
 };
 
+```
+
+## static allocator
+- 将一个总是分配特定尺寸区块的memory allocator给封装起来，使其可以被重复使用。
+```cpp
+class allocator
+{
+private:
+    struct obj{
+        struct obj* next;   //embedded pointer
+    };
+public:
+    void* allocate(size_t);
+    void deallocate(void*,size_t);
+private:
+    obj* freeStore = nullptr;
+    const int CHUNK = 5;
+};
+void* allocator::allocate(size_t size)
+{
+    obj* p;
+    if(!freeStore)
+    {
+        //linklist为空，于是申请一大块内存
+        size_t chunk = CHUNK * size;
+        freeStore = p = (obj*)malloc(chunk);
+
+        //将分配得到的一大块内存，分成一块块小的linked list并且将它们串起来
+        for(int i = 0;i < (CHUNK - 1) ; ++i)
+        {
+            p->next = (obj*)((char*)p + size);
+            p = p->next;
+        }
+        p->next = nullptr;
+    }
+    p = freeStore;
+    freeStore = freeStore->next;
+    return p;
+}
+void allocator::deallocate(void* p,size_t)
+{
+    ((obj*)p)->next = freeStore;
+    freeStore = (obj*)p;
+}
+
+class Foo
+{
+public:
+    long L;
+    string str;
+    static allocator myAlloc;
+public:
+    Foo(long l):L(l){}
+    static void* operator new(size_t size)
+    {
+        return myAlloc.allocate(size);
+    }
+    static void operator delete(void* pdead,size_t size)
+    {
+        return myAlloc.dealloc(pdead,size);
+    }
+};
+allocatot Foo::myAlloc;
 ```
