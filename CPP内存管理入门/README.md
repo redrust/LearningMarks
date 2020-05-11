@@ -271,3 +271,21 @@ public:
 };
 allocatot Foo::myAlloc;
 ```
+
+## new handler
+- 当operator new没能申请分配到新的内存空间时，会抛出一个std::bad_alloc exception。
+- 在抛出exception之前会先（不止一次的）调用一个可由client指定的handler
+    - 以下是new handler的形式和设定方法
+    ```cpp
+    typedef void(*new_handler)();
+    new_handler set_new_handler(new_handler p)throw();
+    ```
+    - 设计良好的new handler应该具备以下两个特性
+      - 让更多的memory可用
+      - 调用abort()或exit()
+
+## VC6 malloc()
+- 存在着巨大的内存浪费
+- VC6、BC5和G2.9的allocator以及G4.9的new_allocator都只是以::operator new和::operator delete完成allocate()和deallocate()，并没有特殊设计，使其适配各大容器。
+- ![](VC6内存块布局.png)
+
