@@ -289,3 +289,16 @@ allocatot Foo::myAlloc;
 - VC6、BC5和G2.9的allocator以及G4.9的new_allocator都只是以::operator new和::operator delete完成allocate()和deallocate()，并没有特殊设计，使其适配各大容器。
 - ![](VC6内存块布局.png)
 
+## std::alloc
+- 由free_list[16]和free_list每个元素所指向的单向链表组成。本质上是自己指向自己，自己管理自己。
+- 由alloc::allocate()和alloc::deallocate()进行申请和归还。
+- 每次申请内存时，都会检查free_list上对应大小的位置，有没有空的还未使用的内存，如果没有，那么就申请当前需要大小的字节的20*2的内存块，比如如果申请96字节内存块大小，那么就申请96*20*2=3840字节的内存，其中20块96字节的内存直接挂在对应位置上，剩下的一半内存放回内存池内以供日后使用。
+
+### embedded pointers
+- 嵌入式指针，在分配的每一个内存块上，内含有一个4字节指针，方便alloc对内存块进行链表链接管理，但是给用户之后，该指针会被覆盖，直到alloc重新接管该内存块，才重新对该指针进行置值。
+```cpp
+//可以表现为如下形式
+struct obj{
+    struct obj* free_list_link;
+};
+```
