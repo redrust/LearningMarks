@@ -508,64 +508,88 @@ public:
 // We assume that size is properly aligned.
 // We hold the allocation lock.
 //----------------------------------------------
+//找到第n号链表之后，发现对应链表是空的，于是调用这个接口，获取一大块内存
+//其中一半插入到链表上，给链表进行管理，剩下一半放入内存池中
 template <bool threads, int inst>
 char*
 __default_alloc_template<threads, inst>::
 chunk_alloc(size_t size, int& nobjs)
 {
   char* result;
+  //一次申请中，总计需要的内存大小
   size_t total_bytes = size * nobjs;
+  //现在可用内存池的大小
   size_t bytes_left = end_free - start_free;
 
+  //如果内存池里的容量大于所需
+  //pool的空间足以满足20块需求
   if (bytes_left >= total_bytes) {
       result = start_free;
+      //降低pool水位
       start_free += total_bytes;
+      //返回申请的内存块指针
       return(result);
-  } else if (bytes_left >= size) {
+  } else if (bytes_left >= size) {//pool空间只满足一块（含）以上的需求
+      //改变需求数
       nobjs = bytes_left / size;
+      //改变需求总量
       total_bytes = size * nobjs;
       result = start_free;
       start_free += total_bytes;
       return(result);
-  } else {
+  } else {//连一块都无法满足，剩下来的内存碎块处理
+      //先准备一块内存
       size_t bytes_to_get =
                  2 * total_bytes + ROUND_UP(heap_size >> 4);
       // Try to make use of the left-over piece.
-      if (bytes_left > 0) {
+      //将碎片充分利用起来
+      if (bytes_left > 0) {//如果ool还有空间
+          //找出内存碎块应转移至的第n号链表位置
           obj* volatile *my_free_list =
                  free_list + FREELIST_INDEX(bytes_left);
-
+          //将内存碎块挂上去
           ((obj*)start_free)->free_list_link = *my_free_list;
           *my_free_list = (obj*)start_free;
       }
+      //重新向系统申请分配一块新的内存块
+      //放入内存池中
       start_free = (char*)malloc(bytes_to_get);
-      if (0 == start_free) {
+      if (0 == start_free) {//如果malloc分配失败
+          //找链表上空闲的链表
           int i;
           obj* volatile *my_free_list, *p;
 
           //Try to make do with what we have. That can't
           //hurt. We do not try smaller requests, since that tends
           //to result in disaster on multi-process machines.
+          //这段注释是针对别的程序，而不是我们写的程序
           for (i = size; i <= __MAX_BYTES; i += __ALIGN) {
+              //从申请内存块的大小，向链表右端不断搜索,直到搜索到有空闲块的链表
               my_free_list = free_list + FREELIST_INDEX(i);
               p = *my_free_list;
-              if (0 != p) {
+              if (0 != p) {//如果该链表内有可用区块，拿出一块给内存池使用
                   *my_free_list = p -> free_list_link;
                   start_free = (char*)p;
                   end_free = start_free + i;
+                  //递归调用检查内存池
                   return(chunk_alloc(size, nobjs));
                   //Any leftover piece will eventually make it to the
                   //right free list.
               }
           }
+          //至此，memory已经山穷水尽
           end_free = 0;       //In case of exception.
+          //尝试调用第一级分配器，看看能不能拿到一点什么
           start_free = (char*)malloc_alloc::allocate(bytes_to_get);
           //This should either throw an exception or
           //remedy the situation. Thus we assume it
           //succeeded.
       }
+      //调整已分配内存大小
       heap_size += bytes_to_get;
+      //调整pool容量
       end_free = start_free + bytes_to_get;
+      //递归再次检查内存池,尽可能的获取最大内存
       return(chunk_alloc(size, nobjs));
   }
 }
@@ -577,8 +601,10 @@ chunk_alloc(size_t size, int& nobjs)
 template <bool threads, int inst>
 void* __default_alloc_template<threads, inst>::
 refill(size_t n)
-{
+{   
+    //默认一次抓20个块,但是不一定能拿到20个
     int nobjs = 20;
+    //nobjs是pass-by-references
     char* chunk = chunk_alloc(n,nobjs);
     obj* volatile *my_free_list;   //obj** my_free_list;
     obj* result;
@@ -586,14 +612,19 @@ refill(size_t n)
     obj* next_obj;
     int i;
 
+    //检查拿到了几个区块，如果只有一个直接返回给客户
     if (1 == nobjs) return(chunk);
+    //如果有很多个，那么需要将其挂到free_list上
     my_free_list = free_list + FREELIST_INDEX(n);
 
     //Build free list in chunk
+    //在chunk内建fre_list链表结构
     result = (obj*)chunk;
     *my_free_list = next_obj = (obj*)(chunk + n);
+    //第一个要给回用户，所以从1开始
     for (i=1;  ; ++i) {
       current_obj = next_obj;
+      //先转型为char进行字节跳转，再转型成obj再链接起来
       next_obj = (obj*)((char*)next_obj + n);
       if (nobjs-1 == i) {
           current_obj->free_list_link = 0;
@@ -605,6 +636,7 @@ refill(size_t n)
     return(result);
 }
 //----------------------------------------------
+//alloc static变量初始化
 template <bool threads, int inst>
 char *__default_alloc_template<threads,inst>::start_free = 0;
 
@@ -622,33 +654,26 @@ __default_alloc_template<threads, inst>::free_list[__NFREELISTS]
 //令第2級配置器的名稱為 alloc
 typedef __default_alloc_template<false,0> alloc;
 
+```
 
-//**********************************
+### G2.9 std::alloc易混点分析
+```cpp
+//易混点1,*号的结合性顺序
+obj* volatile *my_free_list,*p;
+//==>
+obj** p1,*p2;
+//==>
+obj** p1;
+obj* p2;
 
-void test_G29_alloc()
-{
-	cout << "\n\n\ntest_global_allocator_with_16_freelist().......... \n";
-	
-void*	p1 = alloc::allocate(120);
-void* 	p2 = alloc::allocate(72);	
-void* 	p3 = alloc::allocate(60);	//不是 8 倍數 
+//易混点2
+static void (*set_malloc_handler(void (*f)()))()
+//==>
+//函数指针
+typedef void (*H)();
+//返回一个函数指针，而且参数是一个函数指针的接口
+static H set_malloc_handler(H f);
 
-    cout << p1 << ' ' << p2 << ' ' << p3 << endl;
-
-	alloc::deallocate(p1,120);
-	alloc::deallocate(p2,72);
-	alloc::deallocate(p3,60);	
-	
-//以下, 不能搭配容器來測試, 因為新版 G++ 對於 allocator 有更多要求 (詢問更多 typedef 而 alloc 都無法回答) 
-//它其實就是 G4.9 __pool_alloc，所以讓 G4.9容器使用 __pool_alloc 也就等同於這裡所要的測試 
-/*	
-	vector<int, simple_alloc<int,alloc>> v;
-	for(int i=0; i< 1000; ++i)
-		v.push_back(i);
-	for(int i=700; i< 720; ++i)
-		cout << v[i] << ' ';
-*/
-			
-	cout << endl;	
-}
+//易混点3
+//deallcate()完全没有调用free() or delete
 ```
