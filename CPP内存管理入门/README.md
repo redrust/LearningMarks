@@ -677,3 +677,21 @@ static H set_malloc_handler(H f);
 //易混点3
 //deallcate()完全没有调用free() or delete
 ```
+
+## vc6.0 malloc设计一览
+### SBH（small block heap）之始 _heap_init()和__sbh_heap_init()
+#### _heap_init()里的操作一览
+  - HeapCreate()向操作系统申请内存块,赋值给_crtheap,方便以后进行管理,准备16个Header,有点类似于alloc的free_list,但是更底层,几乎可以看成是二进制管理,准确点的话应该说是free_list模仿自header
+
+## vc6.0 执行顺序-->调用栈顺序(debug模式下调用)
+- 1. _heap_init():堆初始化
+- 2. _ioinit():io初始化，第一次分配内存,分配256字节,即100H
+- 3. _heap_alloc_dbg:调整内存区块大小和补充内存块信息,第二次分配内存，分配调整过后的大小,同时做调整内存块指针的工作，基本可以看成是free_list构建链表间指针的操作,而且一直持有链表指针，就算把内存分配给客户之后，也掌握着链表的指向，存储着内存的信息
+- 4. _heap_alloc_base:检查调整过后的Block大小，如果小于或等于小区块大小(1016=1024-8bytes)，那么交给sbh进行分配，否则交给操作系统进行分配
+- 5. __sbh_alloc_block:加上8bytes的cookie，同时对内存大小进行上调到16的倍数
+- 6. __sbh_alloc_new_region:一个header内含有两个指针，一个指针指向实际逻辑内存地址的位置，一个指针指向内存管理空间，也就是region．region负责管理当前内存块的使用情况．region持有32个tagGroup，每个tagGroup持有两个指针，做出一个双向链表，总共有64条双向链表.总共16k左右．为了良好管理虚拟内存的使用情况．此函数调用的结果是获取一块新的region，以供管理使用．
+- 7. __sbh_alloc_new_group:将虚拟内存进行切块划分，同时将每一块串到上面分配好的region里的最后一个group指针上进行管理，每一块都和附近的块进行串联，形成一整块的链表队列．
+  - 最后一条链表的特殊之处：所有大于1kb的块，均归它所管
+  - tagEntry(4096bytes):将虚拟内存切块划分的单位，持有块大小，前后块等信息．以及保留数据块，提供给用户使用．前后块指针方便将每一块串起来，串成一个双向链表，提供给region的group块进行管理
+  - malloc和free本质是group里的双向链表之间指针的变动
+  - group块进行切割分配，将本身内部保留区的指针给传到外部，那么客户就认为自己获得了这一块内存的所有权．切割的时候获得的指针是指向cookie头的，在return回去的时候，要将指针进行偏移，直到指向真正的客户使用区块．

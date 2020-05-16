@@ -34,6 +34,4 @@ int main()
     std::cout << w.use_count() << std::endl;
     return 0;
 }
-
-
-```
+``｀
