@@ -705,3 +705,15 @@ static H set_malloc_handler(H f);
 - 修改region上对应链表的状态，如果本身region对应位上的链表没有区块，挂上回收的区块之后，视为正在管理区块的链表，将其状态位修改为１．如果本身已经管理有区块，则不需要修改．如果回收之后，链表管理区块为空，那么region也需要对应修改．
 - free之时，在pages中，如果上下存在空闲区块，那么会进行上合并或者下合并或者上下一起合并．
 - 上下cookie（无人区）的作用：回收内存块的时候，进行检查上下cookie，在进行cookie大小进行变动的时候，如果检查到上cookie或者下cookie是为空标志，那么就可以进行合并．如果没有下cookie，那么就无法进行上合并．本质是检查无人区最后一位是否为０，如果为０则表明该区块是空区块．
+- free时，要先找到Header，然后找到对应的group，之后再将其挂上fre_list上
+- 分段管理可以区分责任，方便从系统申请和归还
+- 全回收：看group首部cntEntries，如果为0则回收此块内存,全回收之时，调用VirtualFree还回操作系统。有两个group可以归还的时候才进行全回收的归还动作。
+- Defering:有__sbh_pHeaderDefer是一个指针，指向一个全回收group所属的Header，当一个新的全回收group出现，才将这个group给归还给操作系统，同时Defer指针指向新出现的全回收group.如果出现新的分配block请求，那么会从Defer group中取出block完成分配，同时Defer指针会取消。
+- __sbh_indGroupDefer是个索引，指出Region中哪个group是Defer.
+- 在分配block之前，会先检查Header的计数器是否为0,如果为0,那么就看Header是否Defer且此次所用的group是否Defer.都吻合的话就取消其Defer身份(令__sbh_pHeaderDefer为null)
+- 当归还完所有内存时，就会恢复到初始状态，也就是调用__heap_init状态
+
+## vc6.0 malloc&free学习总结
+- 由上至下的allocator->new->malloc->virtual_alloc一层层的封装抽象之下，每一层都不知道附近层的实现，都不互相依赖。其传递的都是信息。
+- allocator设计为了避免cookie的空间浪费，new为了封装malloc，给类对象层次之间多一层抽象，而malloc为了减少virtual_alloc的调用次数，以及内存碎块问题，尽心尽力。
+- 由此观之，可以大概得出结论：如果不是特别需求，new足以满足日常的内存分配需要，而且在性能和碎块数量都良好的情况下，高层业务逻辑设计已经不太需要自己再重头设计一个内存池之类的抽象。
