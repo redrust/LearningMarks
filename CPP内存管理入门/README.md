@@ -717,3 +717,88 @@ static H set_malloc_handler(H f);
 - 由上至下的allocator->new->malloc->virtual_alloc一层层的封装抽象之下，每一层都不知道附近层的实现，都不互相依赖。其传递的都是信息。
 - allocator设计为了避免cookie的空间浪费，new为了封装malloc，给类对象层次之间多一层抽象，而malloc为了减少virtual_alloc的调用次数，以及内存碎块问题，尽心尽力。
 - 由此观之，可以大概得出结论：如果不是特别需求，new足以满足日常的内存分配需要，而且在性能和碎块数量都良好的情况下，高层业务逻辑设计已经不太需要自己再重头设计一个内存池之类的抽象。
+
+## loki::allocator
+- 三个对象，由上至下进行管理
+  ```cpp
+  class Chunk{
+    //当前管理的一大块内存块的头部指针
+    unsigned char* pData_;
+    //第一块空闲的内存块的偏移量
+    unsigned char firstAvailableBlock_;
+    //当前这一大块内存块中，可以切割出多少块小的内存块
+    unsigned char blocksAvailable_;
+  };
+  class FixedAllocator{
+    //管理一堆Chunk
+    vector<Chunk> chunks_;
+    //
+    Chunk* allocChunk_;
+    Chunk* deallocChunk_;
+  };
+  class SmallObjAllocator{
+    //管理一堆FixedAllocator
+    vector<FixedAllocator> pool_;
+    FixedAllocator* pLastAlloc;
+    FixedAllocator* pLastDealloc;
+    size_t chunkSize;
+    size_t maxObjectSize;
+  };
+  ```
+
+### Chunk实现细节
+```cpp
+//初始化申请内存段
+//blockSize:区块大小 blocks:区块数量
+void FixedAllocator::Chunk::Init(std::size_t blockSize,unsigned char blocks)
+{
+  pData_ = new unsigned char[blockSize*blocks];
+  Reset(blockSize,blocks);
+}
+//初始化申请的内存段，将pData_切割成内存块，并给其标上序号
+//在操作结果上，可以近似的看成，将pData_申请的内存段，给切成一块块连续的内存块，同时在每个小块的头部打上索引号
+void FixedAllocator::Chunk::Reset(std::size_t blockSize,unsigned char blocks)
+{
+  firstAvailableBlock_ = 0;
+  blocksAvailable_ = blocks;
+  unsigned char i = 0;
+  unsigned char* p = pData_;
+  //标识索引号
+  for(;i!=blocks;p+=blockSize)
+    *p=++i;
+}
+//此函数被上一层调用
+void FixedAllocator::Chunk::Release()
+{
+  delete[] pData_;//释放自己
+}
+//Chunk分配内存接口
+void* FixedAllocator::Chunk::Allocate(std::size_t blockSize)
+{
+  //当前内存段没有可用内存块
+  if(!blocksAvailable_)
+    return 0;
+  //找到空闲区块
+  unsigned char* pResult = pData_ + (firstAvailableBlock_ * blockSize);
+  //修改空闲区块索引值
+  //找到当前分配出去的内存块的索引值，并将它保存记录下来
+  //它记录有下一块空闲内存块的位置
+  firstAvailableBlock_ = *pResult;
+  //降低空闲区块数量
+  --blocksAvailable_;
+  return pResult;
+}
+//Chunk回收管理内存的接口
+void FixedAllocator::Chunk::Deallocate(void* p,std::size_t blockSize)
+{
+  unsigned char* toRelease = static_cast<unsigned char*>(p);
+  //给当前给回内存块，打上索引值，此索引值是下一块空闲内存的索引值
+  *toRelease = firstAvailableBlock_;
+  //当前指针属于哪一块索引的，只需要将当前指针-头部指针的地址，再除以内存块大小，即可得出索引值
+  //此索引值是记录的Chunk中的，最高优先级的索引区块值
+  //每次分配时，会第一个分配出去，同时需要读取该内存块的上的索引值，该内存块上的索引值指向下一块空闲内存
+  firstAvailableBlock_ = static_cast<unsigned char>((toRelease - pData_)/blockSize);
+  //增加空闲区块数量
+  ++blocksAvailable_;
+}
+```
