@@ -732,8 +732,9 @@ static H set_malloc_handler(H f);
   class FixedAllocator{
     //管理一堆Chunk
     vector<Chunk> chunks_;
-    //
+    //最近分配的Chunk指针
     Chunk* allocChunk_;
+    //最近要回收的Chunk指针
     Chunk* deallocChunk_;
   };
   class SmallObjAllocator{
@@ -755,6 +756,7 @@ void FixedAllocator::Chunk::Init(std::size_t blockSize,unsigned char blocks)
   pData_ = new unsigned char[blockSize*blocks];
   Reset(blockSize,blocks);
 }
+
 //初始化申请的内存段，将pData_切割成内存块，并给其标上序号
 //在操作结果上，可以近似的看成，将pData_申请的内存段，给切成一块块连续的内存块，同时在每个小块的头部打上索引号
 void FixedAllocator::Chunk::Reset(std::size_t blockSize,unsigned char blocks)
@@ -767,12 +769,15 @@ void FixedAllocator::Chunk::Reset(std::size_t blockSize,unsigned char blocks)
   for(;i!=blocks;p+=blockSize)
     *p=++i;
 }
+
 //此函数被上一层调用
 void FixedAllocator::Chunk::Release()
 {
   delete[] pData_;//释放自己
 }
+
 //Chunk分配内存接口
+//三层内存管理结构中，最低的一层，负责直接从操作系统中申请内存并进行管理
 void* FixedAllocator::Chunk::Allocate(std::size_t blockSize)
 {
   //当前内存段没有可用内存块
@@ -788,6 +793,7 @@ void* FixedAllocator::Chunk::Allocate(std::size_t blockSize)
   --blocksAvailable_;
   return pResult;
 }
+
 //Chunk回收管理内存的接口
 void FixedAllocator::Chunk::Deallocate(void* p,std::size_t blockSize)
 {
@@ -802,3 +808,157 @@ void FixedAllocator::Chunk::Deallocate(void* p,std::size_t blockSize)
   ++blocksAvailable_;
 }
 ```
+
+### FixedAllocator实现细节
+```cpp
+//FixedAllocator内存分配
+//本质上是从自身管理的Chunk列表中寻找空闲的Chunk，来进行内存分配
+void* FixedAllocator::Allocate()
+{
+  //目前没有标定chunk或者该chunk已经没有可用区块
+  if(allocChunk_ == 0 || allocChunk_->blocksAvailable_ == 0)
+  {
+    //从头找起
+    Chunks::iterator i = chunks_.begin();
+    for(;;++i)
+    {
+      //到达尾端，都没找到
+      if(i == chunks_.end())
+      {
+        //创建新的Chunk挂到容器尾端
+        //没有处理，如果新建对象失败的情况
+        chunks_.push_back(Chunk());
+        //指向末端的Chunk
+        Chunk& newHChunk = chunks_.back();
+        //设定好索引
+        newChunk.Init(blockSize_,numBlocks_);
+        //将指针指向新的Chunk，方便之后继续分配
+        allocChunk_ = &newChunk;
+        //标定回收Chunk的指针
+        //因为chunks_是vector，在成长的时候，有可能出现搬动的情况
+        //于是需要重设指针，只好将deallocChunk_指向头部
+        deallocChunk_ = &chunks.front();
+        break;
+      }
+      if(i->blocksAvailable_ > 0)
+      {
+        //寻找chunk的过程中找到一个chunk有可用内存块
+        //因为是iterator对象，所以需要先解引用取其值，再取其地址
+        allocChunk_ = &*i;
+        break;
+      }
+    }
+  }
+  //向这个chunk取内存块
+  //下次再申请分配内存的话，直接从现在这个块上找起
+  return allocChunk_->Allocate(blockSize_);
+}
+
+//FixedAllocator内存释放
+void FixedAllocator::Deallocate(void* p)
+{
+  deallocChunk_ = VicinityFind(p);
+  DoDeallocate(p);
+}
+
+//临近查找
+//如果传入的指针不是本系统分配的，会找不到对应的chunk,那么会出现死循环
+//判断传入指针的地址，是否在管理的内存区块段内。只需要判断头地址和尾地址即可
+//于是弄出了头尾一起遍历的特殊设计
+//直觉上比一半的遍历效率高，最坏情况下在O(n)
+FixedAllocator::Chunk* FixedAllocator::VicinityFind(void* p)
+{
+  //一个内存段的大小
+  const std::size_t chunkLength = numBlocks_ * blockSize_;
+  //当前准备释放的内存段的头地址
+  Chunk* lo = deallocChunk_;
+  //当前准备释放的内存段的尾地址
+  Chunk* hi = deallocChunk_ + 1;
+  //当前管理的内存段的首地址，也就是容器中第一个内存段的头地址
+  Chunk* loBound = &chunks.front();
+  //当前管理的内存段的尾地址，也就是容器中最后一个元素再偏移一个元素的头地址
+  Chunk* hiBound = &chunks_.back() + 1;
+  for(;;)
+  {
+    //判断lo是否走到了尽头
+    if(lo)
+    {
+      //p落在lo区间内
+      if(p >= lo->pData_) && p < lo->pData_ + chunkLength)
+      {
+        return lo;
+      }
+      if(lo == loBound)
+      {
+        lo = 0;
+      }
+      else
+      {
+        //lo往上寻找，所以自减
+        --lo;
+      }
+    }
+    //判断hi是否走到了尽头
+    if(hi)
+    {
+      //p落在hi的区间内
+      if(p >= hi->pData_) && p < hi->pData_ + chunkLength)
+      {
+        return hi;
+      }
+      //hi往下寻找，所以自增
+      if(++hi == hiBound)
+      {
+        hi = 0;
+      }
+    }
+  }
+  return nullptr;
+}
+
+void FixedAllocator::DoDeallocate(void* p)
+{
+  //对应区块回收
+  deallocChunk_->Deallocate(p,blockSize_);
+  //全回收处理
+  if(deallocChunk_->blocksAvailable_ == numBlocks_)
+  {
+    Chunk& lastChunk = chunks_.back();//标出最后一个
+    //如果最后一个就是当前释放内存的chunk
+    if(&lastChunk == deallocChunk_)
+    {
+      //有两个free chunk，抛弃最后一个
+      if(chunks_.size() > 1 && deallocChunk_[-1].blocksAvailable_ == numBlocks_)
+      {
+        lastChunk.Release();
+        chunks.pop_back();
+        allocChunk_ = deallocChunk_ = &chunks_.front();
+      }
+      return ;
+    }
+    if(lastChunk.blocksAvailable_ == numBlocks_)
+    {
+      //一个deallocChunk_,一个lastChunk都为空
+      //回收lastChunk
+      //以后继续从deallocChunk上分配内存
+      lastChunk.Release();
+      chunks.pop_back();
+      allocChunk_ = deallocChunk_;
+    }
+    else
+    {
+      //lastChunk不为空
+      //将free chunk与最后一个chunk对调
+      //从lastChunk上分配内存
+      //交换之前，当前deallocChunk_管理的内存，释放了没有？如果不释放，什么时候释放？
+      //如果交给上面的尾部释放策略，是否永远不可能释放了？
+      //deallocChunk_.Release();
+      std::swap(*deallocChunk_,lastChunk);
+      allocChunk_ = &chunks_.back();
+    }
+  }
+}
+```
+
+### Loki allocator总结
+- 精简强悍，手段简单粗暴
