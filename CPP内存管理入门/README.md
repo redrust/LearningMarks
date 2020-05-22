@@ -962,3 +962,43 @@ void FixedAllocator::DoDeallocate(void* p)
 
 ### Loki allocator总结
 - 精简强悍，手段简单粗暴
+- 以数组取代list，以index取代pointer
+- 能够简单的判断chunk全回收，之后将内存段归还给系统
+- 设计了Deferring（暂缓归还）能力
+- allocator用来分配大量小块不带cookie的memory blocks，它的最佳客户是容器，但是它本身却用vector实现,而vecotor应用的是标准库的std::alloc
+
+## 额外allocator分析
+- 所有的allocator都由base_allocator进行处理
+- 对super class的操作进行封装,super class普通用户无法直接访问调用
+- subclass allocator只拥有typedef，constructor和rebind等成员
+### 最简单的方案new_allocator&malloc_allocator
+- 每当容器有内存需求就调用operator new，每当容器释放内存就调用operator delete。效率相对内存池较低，但是可以在大多数操作系统和硬件上正常发挥作用。
+- __gnu_cxx::new_allocator
+  - 实现出最简朴的operator new和operator delete语义。即直接调用全局的operator new和operator delete
+- __gun_cxx:malloc_allocator
+  - 它封装了std::malloc和std::free
+
+### 智能型七大allocator
+- 也就是内存池实现，减少从系统中分配内存的调用次数，由自己管理从操作系统获取的内存，来给容器进行内存块上的分配。
+- 可以是bitmap index实现，用以索引至一个以2的指数倍成长的buckets
+- 较之简单的实现是fixed-size pooling cache.
+- __gnu_cxx::bitmap_allocator
+  - 一个高效能的allocator，使用bit-map追踪被使用和未被使用的内存块
+- __gnu_cxx::pool_allocator
+  - 内存池设计逻辑的分配器
+- __gnu_cxx::__mt_alloc
+- __gnu_cxx::debug_allocator
+  - 这是一个wrapper，可以修饰任何一个allocator。它把用户的申请量添加一些，然后由allocator给回内存块，并用多申请的一些内存，来放置size信息。一旦deallocate()收到一个pointer，就检查size并且使用assert保证吻合。
+- __gnu_cxx::array_allocator
+  - 允许分配一个已知且固定大小的内存块，内存来自std::array objects.使用上这个allocator，大小固定的容器（包括std::string）就无需再调用::operator new和::operator delete。这就允许我们使用STL abstractions而无需在运行时添乱、增加开销。甚至在program startup情况下也可以使用。
+  - 静态数组分配,在还没进入main之前，就可以使用，全局静态变量
+
+### VS2013标准分配器与new_allocator
+- 最基础的分配器，本质上只是一个封装好的::operator new和::operator delete
+- 继承自_Allocator_base
+### G4.9标准分配器与new_allocator
+- 最基础的分配器，本质上只是一个封装好的::operator new和::operator delete
+- 继承自__allocator_base
+- __allocator_base是一个define，其本质是__gnu_cxx::new_allocator
+### G4.9 malloc_allocator
+- 本质上是对std::malloc和std::free的一层封装
