@@ -1002,3 +1002,29 @@ void FixedAllocator::DoDeallocate(void* p)
 - __allocator_base是一个define，其本质是__gnu_cxx::new_allocator
 ### G4.9 malloc_allocator
 - 本质上是对std::malloc和std::free的一层封装
+
+### G4.9 bitmap_allocator
+#### allocate
+- 只对需求一块内存块的用户提供服务，如果一次申请多个内存块，那么交由::operator new和::operator delete处理.
+- 直接使用分配器才会一次申请多块内存
+- blocks:用户申请的内存块,第一次向系统要64个，之后128,256..
+- super-blocks:内存段，每次向系统申请的内存块大小，可以切分成blocks
+- bitmap:在链表的头部，用于记录当前内存块的分配情况，使用bits位记录.本身是unsigned int，一个数值记录32个blocks，即在第一次向系统申请64个blocks时，需要两个bitmap来记录其使用情况.1表示在手中，0标示给出去.
+- use_count:记录当前blocks由多少块被分配出去了.
+- super_block_size:记录super_block_size.如果block_size = 8 bytes,那么super_block_size = 4(use_count) + 2 * 4(bitmap*(blocks/32)) + 64 * 8(blocks*block_size) = 524 bytes
+- mini-vector
+  - 管理一堆单元块，如果有多个管理的链表，那么就存在着多个单元块，每个单元块各自指向自己管理的super_blocks,自身会自动成长的
+  - _M_start:指向一堆单元块的头部
+  - _M_finish:指向一堆单元块的尾部元素的下一个位置
+  - _M_end_of_storage:容器的尾部单元块的下一个位置
+  - 单元块
+    - 单元块头部元素指向super_blocks头部元素
+    - 单元块尾部元素指向super_blocks尾部元素
+- 若不曾全回收，则分配规模会不断倍增，相当惊人。每次全回收造成下一次分配规模减半
+- mini-vector的entries无限制，每个entry代表一种value type，不同的value type即使大小相同也不混用,每一个mini-vector的单元块只管理一种类型的元素
+- 分配内存区块时，优先从未曾回收区块的super-blocks#1上取，当#1分配完之后，再从已经回收过区块的super-blocks#2上分配内存块。
+
+#### deallocate
+- 有mini-vector#2，标记全回收的super-blocks,同时将mini-vector#1上的entry给删除,调用erase动作将vector元素往左推,但是vector自身不会缩小
+- 全回收之时，下一次分配规模减半
+- mini-vector#2最多管理64个super-blocks，超过64个则立即归还给操作系统.如果新全回收的super-blocks管理的内存块，都大于当前管理的super-blocks，那么直接交回给操作系统，如果小于64个blocks，无条件插入mini-vector#2
