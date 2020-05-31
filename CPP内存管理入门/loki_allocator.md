@@ -4,7 +4,7 @@
   class Chunk{
     //当前管理的一内存段的头部指针
     unsigned char* pData_;
-    //首块空闲的内存块的位置
+    //首块空闲的内存块的索引
     //用来快速分配可用内存块
     unsigned char firstAvailableBlock_;
     //当前这内存段中，可以切割出多少块小的内存块
@@ -39,7 +39,7 @@ void FixedAllocator::Chunk::Init(std::size_t blockSize,unsigned char blocks)
   Reset(blockSize,blocks);
 }
 
-//初始化申请的内存段，将pData_切割成内存块，并给其标上序号
+//初始化申请的内存段，将pData_切割成内存块，并给在内存块首部标上序号
 //在操作结果上，可以近似的看成，将pData_申请的内存段，给切成一块块连续的内存块，同时在每个小块的头部打上索引号
 void FixedAllocator::Chunk::Reset(std::size_t blockSize,unsigned char blocks)
 {
@@ -161,6 +161,10 @@ FixedAllocator::Chunk* FixedAllocator::VicinityFind(void* p)
   Chunk* loBound = &chunks.front();
   //当前管理的内存段的尾地址，也就是容器中最后一个元素再偏移一个元素的头地址
   Chunk* hiBound = &chunks_.back() + 1;
+
+  //如果其恰好是最后一块，那么在下面的搜索中,hi将会访问非法内存从而导致崩溃
+	if (hi == hiBound) hi = 0;
+  
   for(;;)
   {
     //判断lo是否走到了尽头
@@ -199,6 +203,8 @@ FixedAllocator::Chunk* FixedAllocator::VicinityFind(void* p)
   return nullptr;
 }
 
+//此函数处理Chunk的情况，尽量保证空Chunk，也就是还未分配内存出去给客户的Chunk，尽量都在vector的末尾
+//减少每次分配时查找的时间
 void FixedAllocator::DoDeallocate(void* p)
 {
   //对应区块回收
@@ -233,8 +239,6 @@ void FixedAllocator::DoDeallocate(void* p)
       //lastChunk不为空
       //将free chunk与最后一个chunk对调
       //从lastChunk上分配内存
-      //交换之前，当前deallocChunk_管理的内存，释放了没有？如果不释放，什么时候释放？
-      //如果交给上面的尾部释放策略，是否永远不可能释放了？
       //deallocChunk_.Release();
       std::swap(*deallocChunk_,lastChunk);
       allocChunk_ = &chunks_.back();
