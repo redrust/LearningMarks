@@ -109,14 +109,14 @@ end
 
 ### 6.包
 - 使用反向表可以制作一种结构变形
-- 其中元素可以出现多次，每个键有一个计数器
+- 其中元素可以出现多次,每个键有一个计数器
 ```lua
--- 向包中插入元素，如果存在增加其计数器
+-- 向包中插入元素,如果存在增加其计数器
 function insert(bag,element)
   bag[element] = (bag[element] or 0 ) + 1;
 end
 
--- 从包中删除元素，计数器减为０则清除元素
+-- 从包中删除元素,计数器减为０则清除元素
 function remove(bag,element)
   local count = bag[element];
   bag[element] = (count and count > 1) and count - 1 or nil;
@@ -137,7 +137,7 @@ Entry{"Donald E. Knuth",
 }
 ```
 ### 2.序列化
-- 将序列化后的数据表示为Lua代码，当这些代码运行时，被序列化的数据就可以在读取程序中得到重建．
+- 将序列化后的数据表示为Lua代码,当这些代码运行时,被序列化的数据就可以在读取程序中得到重建．
 ```lua
 function basicSerialize(o)
   --假设'o'是一个数字或者字符串

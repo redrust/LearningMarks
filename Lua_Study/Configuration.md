@@ -22,7 +22,7 @@ int getglobint(lua_State *L,const char *var)
 
 void load(lua_State* L,const char *fname,int *w,int *h)
 {
-    //加载编译文件中的代码段，并且运行编译后的代码段
+    //加载编译文件中的代码段,并且运行编译后的代码段
     if(luaL_loadfile(L,fname) || lua_pcall(L,0,0,0))
     {
         error(L,"cannot run config.file:%s\n",lua_tostring(L,-1));
@@ -57,7 +57,7 @@ struct ColorTable{
     {nullptr,0,0,0},
 };
 
-//错误处理函数，打印错误信息并关闭lua_State
+//错误处理函数,打印错误信息并关闭lua_State
 void error(lua_State* L,const char *fmt,...)
 {
     va_list argp;
@@ -72,12 +72,12 @@ void error(lua_State* L,const char *fmt,...)
 //获取表中对应键的值
 int getcolorfield(lua_State *L,const char *key)
 {
-    //lua_gettable使用键来索引表中元素的值,所以需要先压入键，才能正确的在表中索引
+    //lua_gettable使用键来索引表中元素的值,所以需要先压入键,才能正确的在表中索引
     lua_pushstring(L,key); // 压入键
-    // lua_gettable使用键索引，获取到值之后将值入栈
+    // lua_gettable使用键索引,获取到值之后将值入栈
     lua_gettable(L,-2); // 获取background[key]
     int isnum = 0;
-    //索引到之后，lua将值压栈，所以在栈顶读取对应键的值
+    //索引到之后,lua将值压栈,所以在栈顶读取对应键的值
     int result = (int)(lua_tonumberx(L,-1,&isnum) * MAX_COLOR);
     if(!isnum)
     {
@@ -102,7 +102,7 @@ void setcolorfield(lua_State *L,const char *key,int value)
 {
     lua_pushstring(L,key); // 将键入栈
     lua_pushnumber(L,(double)value / MAX_COLOR); // 将值入栈
-    lua_settable(L,-3); // 将键值对插入到表中,同时lua_settable这个函数会将键值出栈,完成这个函数调用之后，栈顶指向表
+    lua_settable(L,-3); // 将键值对插入到表中,同时lua_settable这个函数会将键值出栈,完成这个函数调用之后,栈顶指向表
 }
 
 void easysetcolorfield(lua_State *L,const char *key,int value)

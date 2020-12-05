@@ -23,9 +23,9 @@ end
 -- 非阻塞多线程接收函数
 function receive(connection)
     connection:settimeout(0)
-    -- receive读取成功则返回字符串，不成功则返回nil外加错误码以及出错前读取到的内容z2
+    -- receive读取成功则返回字符串,不成功则返回nil外加错误码以及出错前读取到的内容z2
     local s,status,partial = connection:receive(2^10)
-    if status == "timeout" then -- 没有足够的数据可以读取时，协程挂起
+    if status == "timeout" then -- 没有足够的数据可以读取时,协程挂起
         cotoutine.yield(connection)
     end
     return s or partial,status

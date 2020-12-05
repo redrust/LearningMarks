@@ -1,9 +1,9 @@
 ## Variadic Templates
-- 可变参数模板:可以接收任意参数个数，且每个参数类型也可以是任意的。
-- 如果要知道包(args)里有多少个参数，可以使用`sizeof...(args)`直接获取其个数。
+- 可变参数模板:可以接收任意参数个数,且每个参数类型也可以是任意的。
+- 如果要知道包(args)里有多少个参数,可以使用`sizeof...(args)`直接获取其个数.
 ```cpp
 //可变参模板实现递推
-//递推注意事项：一定要实现一个出口函数，处理最后状态，否则会编译出错。
+//递推注意事项:一定要实现一个出口函数,处理最后状态,否则会编译出错.
 void printX() //出口函数 版本１
 {
 }
@@ -21,8 +21,8 @@ void printX(const Types&... args) //版本３
     //do something
 }
 ```
-### 思考：版本２和版本３可以共存吗？如果可以，谁更特化？
-- [答]：可以共存，版本２比版本３更特化。
+### 思考:版本２和版本３可以共存吗？如果可以,谁更特化？
+- [答]:可以共存,版本２比版本３更特化.
 
 ### recursive function call
 ```cpp
@@ -57,9 +57,9 @@ public:
     }
 };
 ```
-调用顺序：类方法入口调用，调用版本１，版本１做初始化操作。接着调用版本２，版本２做拆包操作，不断调用自身（递归），直到包里只剩下最后一个参数。最后调用版本３，版本３作为出口函数，做最后状态处理。
+调用顺序:类方法入口调用,调用版本１,版本１做初始化操作.接着调用版本２,版本２做拆包操作,不断调用自身（递归）,直到包里只剩下最后一个参数.最后调用版本３,版本３作为出口函数,做最后状态处理.
 
-### tuple也是这个实现思路。关键点在于私有继承包对象。
+### tuple也是这个实现思路.关键点在于私有继承包对象.
 ``` cpp
 template<typename... Values> class tuple;
 template<>class tuple<>{} //最后的出口处理
@@ -80,7 +80,7 @@ protected:
 //测试案例
 tuple<int,float,string> t(41,6.3,"nico");
 t.head(); //获得"41"
-t.tail(); //获得一个内存地址,指向t对象的地址首部。
+t.tail(); //获得一个内存地址,指向t对象的地址首部.
 t.tail().head(); //获得6.3
 ```
 测试案例中继承结构如下:  
@@ -96,7 +96,7 @@ tuple<int,float,string>
 int m_head(41);
 
 ### 例１
-- 可以将参数类型和值进行打包，之后通过模板预算推导，来实现拆包逐一处理元素。
+- 可以将参数类型和值进行打包,之后通过模板预算推导,来实现拆包逐一处理元素.
 ```cpp
 void printX()
 {
@@ -112,7 +112,7 @@ void printX(const T& firstArg,const Types&... args)
 ### 例２
 - 重写printf
 ```cpp
-//出口处理，参数不匹配的异常情况
+//出口处理,参数不匹配的异常情况
 void printf(const char* s)
 {
     while(*s)
@@ -139,11 +139,11 @@ void printf(const char* s,T value,Args... args)
 }
 ```
 ### 例３
-- 如果参数types相同，不需要动用variadic templates，使用initializer_list\<T>即可。
-- 案例可以参考C++标准库的max算法实现。
+- 如果参数types相同,不需要动用variadic templates,使用initializer_list\<T>即可.
+- 案例可以参考C++标准库的max算法实现.
 
 ### 例４
-- 不使用initializer_list的max算法实现。
+- 不使用initializer_list的max算法实现.
 ```cpp
 int maximum(int n)
 {
@@ -189,14 +189,14 @@ struct PRINT_TUPLE<MAX,MAX,Args...>
 ```
 
 ### 例６
-- 用于递归继承，recursive inheritation
-- 参考tuple实现。
+- 用于递归继承,recursive inheritation
+- 参考tuple实现.
 
 ### 例７
-- 用于递归复合，recursive composition
-- 递归调用，处理的都是参数，使用function template
-- 递归复合，处理的都是类型，使用class template
-- 类对象与类对象之间的关系变成了组合，就不再是继承了
+- 用于递归复合,recursive composition
+- 递归调用,处理的都是参数,使用function template
+- 递归复合,处理的都是类型,使用class template
+- 类对象与类对象之间的关系变成了组合,就不再是继承了
 ```cpp
 template<typename... Values> class tup;
 template<> class tup<>{};
@@ -211,7 +211,7 @@ public:
     tup(){}
     tup(Head v,Tail... vtail):m_tail(vtail),m_head(v){}
     Head head(){ return m_head; }
-    //传引用，否则会是一份拷贝
+    //传引用,否则会是一份拷贝
     composited& tail(){ return m_tail; }
 };
 
@@ -221,7 +221,7 @@ std::cout << sizeof(it1) << std::endl;
 std::cout << it1.head() << std::endl;
 std::cout << it1.tail().head() << std::endl;
 std::cout << it1.tail().tail().head() << std::endl;
-/*输出结果如下：
+/*输出结果如下:
 *56
 *41
 *6.3

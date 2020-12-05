@@ -69,7 +69,7 @@ static int l_split(lua_State *L)
 }
 ```
 ### 2.`const char *lua_pushfstring(lua_State *L,const char *fmt,...)`
-- 格式化创建字符串，与sprintf类似,但是不需要提供缓冲区，Lua会自动创建
+- 格式化创建字符串,与sprintf类似,但是不需要提供缓冲区,Lua会自动创建
 - 将结果压入栈中并返回一个指向它的指针
 ### 3.使用缓冲区
 ```cpp
@@ -118,7 +118,7 @@ static int tconcat(lua_State* L)
 ```
 
 ## 3.注册表
-- 注册表是一张只能被C代码访问的全局表．通常情况下，我们使用注册表存储多个模块间共享的数据．
+- 注册表是一张只能被C代码访问的全局表．通常情况下,我们使用注册表存储多个模块间共享的数据．
 - 注册表总是位与LUA_REGISTRYINDEX中
 - 1.获取注册表中键为"key"的值
   - `lua_getfield(L,LUA_REGISTRYINDEX,"key");`
@@ -127,7 +127,7 @@ static int tconcat(lua_State* L)
   - 2.将与引用相关联的值压入栈中:`lua_rawgeti(L,LUA_REGISTRYINDEX,ref);`
   - 3.释放值和引用:`lua_unref(L,LUA_REGISTRYINDEX,ref);`
 - 3.预定义引用
-  - LUA_RIDX_MAINTHREAD:指向Lua状态本身，也就是其主线程
+  - LUA_RIDX_MAINTHREAD:指向Lua状态本身,也就是其主线程
   - LUA_RIDX_GLOBALS:指向全局变量
 - 4.使用C语言指针(转换为轻量级用户数据)作为键
   ```cpp
@@ -158,7 +158,7 @@ static int counter(lua_State *L)
 int newCounter(lua_State *L)
 {
     lua_pushinteger(L,0);
-    //创建一个新的闭包，第二个参数是一个基础函数，第三个参数是上值的数量
+    //创建一个新的闭包,第二个参数是一个基础函数,第三个参数是上值的数量
     lua_pushcclosure(L,&counter,1);
     return 1;
 }

@@ -18,13 +18,13 @@ function traceback()
 end
 ```
 - 2.debug.getlocal:检查任意活跃函数的局部变量
-  - 参数：查询函数的栈层次，变量的索引
-  - 返回值：变量名，变量当前值
+  - 参数:查询函数的栈层次,变量的索引
+  - 返回值:变量名,变量当前值
 - 3.debug.setlocal:改变局部由变量的值
-  - 参数：前两个与getlocal相同，第三个参数为该局部变量的新值
-- 4.debug.getupvalue：访问一个全局变量
-  - 参数：第一个参数为函数，第二个参数是变量的索引
-- 5.debug.setupvalue：设置一个全局变量的新值
+  - 参数:前两个与getlocal相同,第三个参数为该局部变量的新值
+- 4.debug.getupvalue:访问一个全局变量
+  - 参数:第一个参数为函数,第二个参数是变量的索引
+- 5.debug.setupvalue:设置一个全局变量的新值
 ```lua
 -- 获取变量的值
 function getvarvalue(name,level,isenv)
@@ -58,7 +58,7 @@ function getvarvalue(name,level,isenv)
 
     if isenv then return "noenv" end -- 避免循环
 
-    -- 没找到，从环境中获取值
+    -- 没找到,从环境中获取值
     local _,env = getvarvalue("_ENV",level,true)
     if env then
         return "glbal",env[name]
@@ -79,8 +79,8 @@ print(getvarvalue("a"))
   - 2.函数返回时产生return事件
   - 3.开始执行一行新代码时产生的line事件
   - 4.执行完制定数量的指令后产生的count事件
-- debug.sethook：注册一个钩子函数
-  - 参数：第一个参数是钩子函数，第二个参数是选项字符串，第三个参数是count事件的频次
+- debug.sethook:注册一个钩子函数
+  - 参数:第一个参数是钩子函数,第二个参数是选项字符串,第三个参数是count事件的频次
 ```lua
 -- 用于计算调用次数的钩子
 local Counters = {}
@@ -103,7 +103,7 @@ debug.sethook() -- 关闭钩子
 ```
 
 ### 3.沙盒
-- Lua语言通过库函数完成所有与外部世界的通信，因此一旦移除了这些函数也就排除一个脚本能够影响外部环境的可能
+- Lua语言通过库函数完成所有与外部世界的通信,因此一旦移除了这些函数也就排除一个脚本能够影响外部环境的可能
 ```lua
 local debug = require "debug"
 
