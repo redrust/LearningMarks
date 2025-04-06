@@ -11,28 +11,30 @@
 */
 class Solution {
 public:
-    vector<TreeNode*> getTwoSwappedNodes(TreeNode* root) {
-        vector<TreeNode*> result{nullptr, nullptr};
+    void recoverTree(TreeNode* root) {
         if(root==nullptr){
-            return result;
+            return;
         }
+        vector<TreeNode*> vec{nullptr,nullptr};
         stack<TreeNode*> s;
         TreeNode* cur=root;
         TreeNode* pre=nullptr;
-        while(cur!=nullptr || !s.empty()){
+        while(cur!=nullptr||s.empty()==false){
             while(cur!=nullptr){
                 s.push(cur);
-                cur=cur->left; 
+                cur=cur->left;
             }
             cur=s.top();
             s.pop();
-            if(pre!=nullptr && pre->val>cur->val){
-                result[0]=result[0]==nullptr?pre:result[0];
-                result[1]=cur;
+            if(pre!=nullptr&&cur->val<pre->val){
+                vec[0]=vec[0]==nullptr?pre:vec[0];
+                vec[1]=cur;
             }
             pre=cur;
             cur=cur->right;
         }
-        return result;
+        int t=vec[0]->val;
+        vec[0]->val=vec[1]->val;
+        vec[1]->val=t;
     }
 };
